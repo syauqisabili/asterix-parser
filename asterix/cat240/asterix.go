@@ -1,8 +1,8 @@
 package cat240
 
 import (
-	"asterix-cat240/asterix"
-	"asterix-cat240/pkg"
+	"asterix-parser/asterix"
+	"asterix-parser/pkg"
 	"bytes"
 	"compress/zlib"
 	"fmt"

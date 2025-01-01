@@ -1,8 +1,8 @@
 package main
 
 import (
-	"asterix-cat240/asterix"
-	"asterix-cat240/asterix/cat240"
+	"asterix-parser/asterix"
+	"asterix-parser/asterix/cat240"
 	"encoding/hex"
 	"fmt"
 )
