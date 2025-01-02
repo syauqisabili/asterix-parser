@@ -3,10 +3,7 @@ package cat240
 import (
 	"asterix-parser/asterix"
 	"asterix-parser/pkg"
-	"bytes"
-	"compress/zlib"
 	"fmt"
-	"io"
 	"math"
 )
 
@@ -79,9 +76,15 @@ func asterixFieldPut(bit int, value []byte, cat240 *asterix.Cat240) {
 	case Cat240Field4:
 		cat240.VideoSummary = value
 	case Cat240Field5:
-		cat240.VideoHeaderNano = [12]byte{value[0], value[1], value[2], value[3], value[4], value[5], value[6], value[7], value[8], value[9], value[10], value[11]}
+		cat240.VideoHeaderNano.StartAzimuth = [2]byte{value[0], value[1]}
+		cat240.VideoHeaderNano.EndAzimuth = [2]byte{value[2], value[3]}
+		cat240.VideoHeaderNano.Range = [4]byte{value[4], value[5], value[6], value[7]}
+		cat240.VideoHeaderNano.Duration = [4]byte{value[8], value[9], value[10], value[11]}
 	case Cat240Field6:
-		cat240.VideoHeaderFemto = [12]byte{value[0], value[1], value[2], value[3], value[4], value[5], value[6], value[7], value[8], value[9], value[10], value[11]}
+		cat240.VideoHeaderFemto.StartAzimuth = [2]byte{value[0], value[1]}
+		cat240.VideoHeaderFemto.EndAzimuth = [2]byte{value[2], value[3]}
+		cat240.VideoHeaderFemto.Range = [4]byte{value[4], value[5], value[6], value[7]}
+		cat240.VideoHeaderFemto.Duration = [4]byte{value[8], value[9], value[10], value[11]}
 	case Cat240Field7:
 		cat240.DataCompression = value[0]
 		cat240.VideoCellsResolution = value[1]
@@ -139,6 +142,7 @@ func asterixUnpackProcess(cat240 *asterix.Cat240, raw []byte) {
 			// Get repetition
 			len += 1
 			rep := raw[pos:len]
+
 			if format == varLen {
 				len += int(rep[0])
 			} else {
@@ -151,36 +155,15 @@ func asterixUnpackProcess(cat240 *asterix.Cat240, raw []byte) {
 				} else if format == highVarLen {
 					factor = HighDataVolumeFactor
 				}
+
 				len += int(rep[0]) * factor
-
-				// Compression checking
-				if cat240.DataCompression>>(8-1) == 1 {
-					// Compression
-					blockData := raw[pos+1 : len]
-
-					reader, err := zlib.NewReader(bytes.NewReader(blockData))
-					if err != nil {
-						continue
-					}
-					defer reader.Close()
-
-					// Read the decompressed data from the zlib reader
-					decompressedData, err := io.ReadAll(reader)
-					if err != nil {
-						continue
-					}
-
-					value = append(rep, decompressedData...)
-
-				} else {
-					// No compression
-					value = raw[pos:len]
-				}
+				value = raw[pos:len]
 			}
 
 		} else {
 			if format < 0 {
 				// continue
+				fmt.Print("FX\n")
 				continue
 			} else {
 				pos = len

@@ -10,14 +10,21 @@ type VideoBlockDataVolume struct {
 	Data                []byte
 }
 
+type VideoHeader struct {
+	StartAzimuth [2]byte
+	EndAzimuth   [2]byte
+	Range        [4]byte
+	Duration     [4]byte
+}
+
 type Cat240 struct {
 	FieldSpecs             []byte
 	DataSourceIdentifier   DataSourceIdentifier
 	MessageType            byte
 	VideoRecordHeader      [4]byte
 	VideoSummary           []byte
-	VideoHeaderNano        [12]byte
-	VideoHeaderFemto       [12]byte
+	VideoHeaderNano        VideoHeader
+	VideoHeaderFemto       VideoHeader
 	DataCompression        byte
 	VideoCellsResolution   byte
 	VideoOctets            [2]byte
