@@ -3,7 +3,8 @@ package main
 import (
 	"asterix-parser/asterix"
 	"asterix-parser/asterix/cat240"
-	"asterix-parser/domain"
+	"asterix-parser/dto"
+	"asterix-parser/pkg"
 	"bytes"
 	"compress/zlib"
 	"encoding/hex"
@@ -19,63 +20,70 @@ func main() {
 	// Convert hex to byte using encoding/hex
 	message, err := hex.DecodeString(sentence)
 	if err != nil {
-		fmt.Println("Error:", err)
+		pkg.LogError(fmt.Errorf("decode string: %v", err))
 		return
 	}
 
-	asterixCat240 := &asterix.Cat240{}
-	cat240.AsterixUnpackMessage(asterixCat240, &message)
-
+	packet := &asterix.Cat240{}
+	if err := cat240.AsterixUnpackMessage(packet, &message); err != nil {
+		pkg.LogError(fmt.Errorf("parsing asterix sentence: %v", err))
+		return
+	}
 	// Radar
-	radar := &domain.Radar{}
+	radar := &dto.Radar{}
 
-	// Compression checking
-	if asterixCat240.DataCompression>>(8-1) == 1 {
-		blockData := asterixCat240.VideoBlockLowVolume.Data
+	// Get record header
+	radar.Header = uint32(packet.VideoRecordHeader[0])<<24 | uint32(packet.VideoRecordHeader[1])<<16 | uint32(packet.VideoRecordHeader[2])<<8 | uint32(packet.VideoRecordHeader[3])
 
-		reader, err := zlib.NewReader(bytes.NewReader(blockData))
-		if err != nil {
+	// Compression indicator checking
+	radar.DataCompressionIndicator = packet.DataCompressionIndicator>>(8-1) == 1
 
-		}
-		defer reader.Close()
-
-		// Read the decompressed data from the zlib reader
-		rawData, err := io.ReadAll(reader)
-		if err != nil {
-
-		}
-
-		radar.VideoBlock = rawData
+	// Block data
+	if asterix.IsBitSet(packet.FieldSpecs, cat240.Field10) == 1 {
+		radar.VideoBlockData = packet.VideoBlockLowVolume.Data
+	} else if asterix.IsBitSet(packet.FieldSpecs, cat240.Field11) == 1 {
+		radar.VideoBlockData = packet.VideoBlockMediumVolume.Data
+	} else if asterix.IsBitSet(packet.FieldSpecs, cat240.Field12) == 1 {
+		radar.VideoBlockData = packet.VideoBlockHighVolume.Data
 	}
 
-	value := 0
+	// Valid octet
+	radar.ValidOctet = uint16(packet.VideoOctets[0])<<8 | uint16(packet.VideoOctets[1])
+
+	// Valid cells
+	radar.ValidCell = uint32(packet.VideoCells[0])<<16 | uint32(packet.VideoCells[1])<<8 | uint32(packet.VideoCells[2])
+
 	// Check azimuth is not empty
-	if asterixCat240.VideoHeaderNano != (asterix.VideoHeader{}) {
+	value := 0
+	if packet.VideoHeaderNano != (asterix.VideoHeader{}) {
 		// Start azimuth
-		value = int(asterixCat240.VideoHeaderNano.StartAzimuth[0])<<8 | int(asterixCat240.VideoHeaderNano.StartAzimuth[1])
+		value = int(packet.VideoHeaderNano.StartAzimuth[0])<<8 | int(packet.VideoHeaderNano.StartAzimuth[1])
 		radar.StartAzimuth = (360.0 / math.MaxUint16) * float32(value)
 		// End azimuth
-		value = int(asterixCat240.VideoHeaderNano.EndAzimuth[0])<<8 | int(asterixCat240.VideoHeaderNano.EndAzimuth[1])
+		value = int(packet.VideoHeaderNano.EndAzimuth[0])<<8 | int(packet.VideoHeaderNano.EndAzimuth[1])
 		radar.EndAzimuth = (360.0 / math.MaxUint16) * float32(value)
 		// Range
-		radar.Range = uint32(asterixCat240.VideoHeaderNano.Range[0])<<24 | uint32(asterixCat240.VideoHeaderNano.Range[1])<<16 | uint32(asterixCat240.VideoHeaderNano.Range[2])<<8 | uint32(asterixCat240.VideoHeaderNano.Range[3])
+		radar.Range = uint32(packet.VideoHeaderNano.Range[0])<<24 | uint32(packet.VideoHeaderNano.Range[1])<<16 | uint32(packet.VideoHeaderNano.Range[2])<<8 | uint32(packet.VideoHeaderNano.Range[3])
 		// Cell duration
-		radar.CellDuration = uint32(asterixCat240.VideoHeaderNano.Duration[0])<<24 | uint32(asterixCat240.VideoHeaderNano.Duration[1])<<16 | uint32(asterixCat240.VideoHeaderNano.Duration[2])<<8 | uint32(asterixCat240.VideoHeaderNano.Duration[3])
-	} else if asterixCat240.VideoHeaderFemto != (asterix.VideoHeader{}) {
+		duration := uint32(packet.VideoHeaderNano.Duration[0])<<24 | uint32(packet.VideoHeaderNano.Duration[1])<<16 | uint32(packet.VideoHeaderNano.Duration[2])<<8 | uint32(packet.VideoHeaderNano.Duration[3])
+		radar.CellDuration = float64(duration) * 0.000000000000001
+
+	} else if packet.VideoHeaderFemto != (asterix.VideoHeader{}) {
 		// Start azimuth
-		value = int(asterixCat240.VideoHeaderFemto.StartAzimuth[0])<<8 | int(asterixCat240.VideoHeaderFemto.StartAzimuth[1])
+		value = int(packet.VideoHeaderFemto.StartAzimuth[0])<<8 | int(packet.VideoHeaderFemto.StartAzimuth[1])
 		radar.StartAzimuth = 360.0 / math.MaxUint16 * float32(value)
 		// End azimuth
-		value = int(asterixCat240.VideoHeaderFemto.EndAzimuth[0])<<8 | int(asterixCat240.VideoHeaderFemto.EndAzimuth[1])
+		value = int(packet.VideoHeaderFemto.EndAzimuth[0])<<8 | int(packet.VideoHeaderFemto.EndAzimuth[1])
 		radar.EndAzimuth = 360.0 / math.MaxUint16 * float32(value)
 		// Range
-		radar.Range = uint32(asterixCat240.VideoHeaderFemto.Range[0])<<24 | uint32(asterixCat240.VideoHeaderFemto.Range[1])<<16 | uint32(asterixCat240.VideoHeaderFemto.Range[2])<<8 | uint32(asterixCat240.VideoHeaderFemto.Range[3])
+		radar.Range = uint32(packet.VideoHeaderFemto.Range[0])<<24 | uint32(packet.VideoHeaderFemto.Range[1])<<16 | uint32(packet.VideoHeaderFemto.Range[2])<<8 | uint32(packet.VideoHeaderFemto.Range[3])
 		// Cell duration
-		radar.CellDuration = uint32(asterixCat240.VideoHeaderFemto.Duration[0])<<24 | uint32(asterixCat240.VideoHeaderFemto.Duration[1])<<16 | uint32(asterixCat240.VideoHeaderFemto.Duration[2])<<8 | uint32(asterixCat240.VideoHeaderFemto.Duration[3])
+		duration := uint32(packet.VideoHeaderFemto.Duration[0])<<24 | uint32(packet.VideoHeaderFemto.Duration[1])<<16 | uint32(packet.VideoHeaderFemto.Duration[2])<<8 | uint32(packet.VideoHeaderFemto.Duration[3])
+		radar.CellDuration = float64(duration) * 0.000000000000001
 	}
 
 	// Convert time of day to hh:mm:ss
-	value = int(asterixCat240.TimeOfDay[0])<<16 | int(asterixCat240.TimeOfDay[1])<<8 | int(asterixCat240.TimeOfDay[2])
+	value = int(packet.TimeOfDay[0])<<16 | int(packet.TimeOfDay[1])<<8 | int(packet.TimeOfDay[2])
 
 	secs := float32(value / 128)
 	hour := int(secs / 3600)
@@ -84,10 +92,30 @@ func main() {
 	minutes := int(remaining / 60)
 
 	remaining -= float32(minutes * 60)
-
 	timeOfDay := fmt.Sprintf("%02d%02d%02d", hour, minutes, int(remaining))
 
 	radar.TimeOfDay = timeOfDay
 
-	fmt.Printf("Radar: %v\n", radar)
+	// Asterix data compression indicator check
+	if radar.DataCompressionIndicator {
+		blockData := radar.VideoBlockData
+
+		// Decompress using zlib
+		reader, err := zlib.NewReader(bytes.NewReader(blockData))
+		if err != nil {
+			pkg.LogError(fmt.Printf("zlib reader: %v", err))
+		}
+		defer reader.Close()
+
+		// Read the decompressed data from the zlib reader
+		rawData, err := io.ReadAll(reader)
+		if err != nil {
+			pkg.LogError(fmt.Printf("io read: %v", err))
+		}
+
+		radar.VideoBlockData = []byte{}
+		radar.VideoBlockData = append(radar.VideoBlockData, rawData...) // Append the decompression
+	}
+
+	pkg.LogDebug(fmt.Printf("radar: %v", radar))
 }

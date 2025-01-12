@@ -3,6 +3,7 @@ package cat240
 import (
 	"asterix-parser/asterix"
 	"asterix-parser/pkg"
+
 	"fmt"
 	"math"
 )
@@ -23,28 +24,28 @@ const (
 )
 
 const (
-	Cat240Specs   = 0
-	Cat240Field1  = 1
-	Cat240Field2  = 2
-	Cat240Field3  = 3
-	Cat240Field4  = 4
-	Cat240Field5  = 5
-	Cat240Field6  = 6
-	Cat240Field7  = 7
-	Cat240Field8  = 8
-	Cat240Field9  = 9
-	Cat240Field10 = 10
-	Cat240Field11 = 11
-	Cat240Field12 = 12
-	Cat240Field13 = 13
-	Cat240Field14 = 14
-	Cat240Field15 = 15
-	Cat240Field16 = 16
+	Cat240Specs = 0
+	Field1      = 1
+	Field2      = 2
+	Field3      = 3
+	Field4      = 4
+	Field5      = 5
+	Field6      = 6
+	Field7      = 7
+	Field8      = 8
+	Field9      = 9
+	Field10     = 10
+	Field11     = 11
+	Field12     = 12
+	Field13     = 13
+	Field14     = 14
+	Field15     = 15
+	Field16     = 16
 
-	LenCat240Field = 17
+	LenField = 17
 )
 
-var Cat240Profile = [LenCat240Field]int{
+var Cat240Profile = [LenField]int{
 	1,            // 0 Spec (Max 2 bytes)
 	2,            // 1 Data Source Identifier
 	1,            // 2 Message Type
@@ -53,87 +54,87 @@ var Cat240Profile = [LenCat240Field]int{
 	12,           // 5 Video Header Nano
 	12,           // 6 Video Header Femto
 	2,            // 7 Video Cells Resolution & Data Compression Indicator
-	-1,           // 8 FX (Cat240Field Extension)
+	-1,           // 8 FX (Field Extension)
 	5,            // 9 Video Octets & Video Cells Counters
 	lowVarLen,    // 10 Video Block Low Data Volume: 1+4*n octets
 	mediumVarLen, // 11 Video Block Medium Data Volume: 1+64*n octets
 	highVarLen,   // 12 Video Block High Data Volume: 1+256*n octets
 	3,            // 13 Time of Day
-	0,            // 14 Reserved Expansion Cat240Field
+	0,            // 14 Reserved Expansion Field
 	0,            // 15 SP
-	-1,           // 16 FX (Cat240Field Extension)
+	-1,           // 16 FX (Field Extension)
 }
 
 func asterixFieldPut(bit int, value []byte, cat240 *asterix.Cat240) {
 	switch bit {
-	case Cat240Field1:
+	case Field1:
 		cat240.DataSourceIdentifier.SystemAreaCode = value[0]
 		cat240.DataSourceIdentifier.SystemIdentificationCode = value[1]
-	case Cat240Field2:
+	case Field2:
 		cat240.MessageType = value[0]
-	case Cat240Field3:
+	case Field3:
 		cat240.VideoRecordHeader = [4]byte{value[0], value[1], value[2], value[3]}
-	case Cat240Field4:
+	case Field4:
 		cat240.VideoSummary = value
-	case Cat240Field5:
+	case Field5:
 		cat240.VideoHeaderNano.StartAzimuth = [2]byte{value[0], value[1]}
 		cat240.VideoHeaderNano.EndAzimuth = [2]byte{value[2], value[3]}
 		cat240.VideoHeaderNano.Range = [4]byte{value[4], value[5], value[6], value[7]}
 		cat240.VideoHeaderNano.Duration = [4]byte{value[8], value[9], value[10], value[11]}
-	case Cat240Field6:
+	case Field6:
 		cat240.VideoHeaderFemto.StartAzimuth = [2]byte{value[0], value[1]}
 		cat240.VideoHeaderFemto.EndAzimuth = [2]byte{value[2], value[3]}
 		cat240.VideoHeaderFemto.Range = [4]byte{value[4], value[5], value[6], value[7]}
 		cat240.VideoHeaderFemto.Duration = [4]byte{value[8], value[9], value[10], value[11]}
-	case Cat240Field7:
-		cat240.DataCompression = value[0]
+	case Field7:
+		cat240.DataCompressionIndicator = value[0]
 		cat240.VideoCellsResolution = value[1]
-	case Cat240Field8:
+	case Field8:
 		// FX
-	case Cat240Field9:
+	case Field9:
 		cat240.VideoOctets = [2]byte{value[0], value[1]}
 		cat240.VideoCells = [3]byte{value[2], value[3], value[4]}
-	case Cat240Field10:
+	case Field10:
 		cat240.VideoBlockLowVolume.RepetitionIndicator = value[0]
 		cat240.VideoBlockLowVolume.Data = value[1:]
-	case Cat240Field11:
+	case Field11:
 		cat240.VideoBlockMediumVolume.RepetitionIndicator = value[0]
 		cat240.VideoBlockMediumVolume.Data = value[1:]
-	case Cat240Field12:
+	case Field12:
 		cat240.VideoBlockHighVolume.RepetitionIndicator = value[0]
 		cat240.VideoBlockHighVolume.Data = value[1:]
-	case Cat240Field13:
+	case Field13:
 		cat240.TimeOfDay = [3]byte{value[0], value[1], value[2]}
-	case Cat240Field14:
+	case Field14:
 		// Reserved Expansion
-	case Cat240Field15:
+	case Field15:
 		// SP
-	case Cat240Field16:
+	case Field16:
 		// FX
 	default:
-		fmt.Printf("Unknown field: %d\n", bit)
+		pkg.LogError(fmt.Sprintf("Unknown field: %d", bit))
 	}
 }
 
 func asterixUnpackProcess(cat240 *asterix.Cat240, raw []byte) {
 	// Fspec extension
-	fspecExtension := pkg.UtilBitTest(raw[:1], Cat240Field8)
+	fspecExtension := asterix.IsBitSet(raw[:1], Field8)
 
 	// Get fspec
 	len := Cat240Profile[Cat240Specs] + fspecExtension
 	fspec := raw[:len]
 	cat240.FieldSpecs = fspec
 
-	fmt.Printf("FSPEC (%d): [%x]\n", len, fspec)
+	// fmt.Printf("FSPEC (%d): [%x]\n", len, fspec)
 
 	pos := 0
-	for bit := Cat240Field1; bit < LenCat240Field; bit++ {
-		if pkg.UtilBitTest(fspec, bit) == 0 {
+	for bit := Field1; bit < LenField; bit++ {
+		if asterix.IsBitSet(fspec, bit) == 0 {
 			continue
 		}
 
 		format := Cat240Profile[bit]
-		fmt.Printf("Bit (%d)(%d): ", bit, format)
+		// fmt.Printf("Bit (%d)(%d): ", bit, format)
 
 		var value []byte
 		if format == varLen || format == lowVarLen || format == mediumVarLen || format == highVarLen {
@@ -163,7 +164,7 @@ func asterixUnpackProcess(cat240 *asterix.Cat240, raw []byte) {
 		} else {
 			if format < 0 {
 				// continue
-				fmt.Print("FX\n")
+				// fmt.Print("FX\n")
 				continue
 			} else {
 				pos = len
@@ -172,7 +173,7 @@ func asterixUnpackProcess(cat240 *asterix.Cat240, raw []byte) {
 			}
 		}
 
-		fmt.Printf("[%x] \n", value)
+		// fmt.Printf("[%x] \n", value)
 
 		// Put the value
 		asterixFieldPut(bit, value, cat240)
@@ -180,11 +181,18 @@ func asterixUnpackProcess(cat240 *asterix.Cat240, raw []byte) {
 
 }
 
-func AsterixUnpackMessage(cat240 *asterix.Cat240, message *[]byte) {
+func AsterixUnpackMessage(cat240 *asterix.Cat240, message *[]byte) error {
+	// Check message empty
+	if message == nil {
+		return fmt.Errorf("cannot parse empty input")
+	}
 	// Parse message
 	raw := *message
 
 	// Process the header cat240 (F0)
+	if raw[0] != 0xf0 {
+		return fmt.Errorf("invalid cat240 header: %d", raw[0])
+	}
 	raw = raw[1:]
 
 	// Process Length
@@ -192,4 +200,6 @@ func AsterixUnpackMessage(cat240 *asterix.Cat240, message *[]byte) {
 
 	// Parse the message
 	asterixUnpackProcess(cat240, raw)
+
+	return nil
 }

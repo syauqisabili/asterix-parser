@@ -1,6 +1,6 @@
-package pkg
+package asterix
 
-func UtilBitTest(buf []byte, index int) int {
+func IsBitSet(buf []byte, index int) int {
 	index--
 	for index >= 8 {
 		buf = buf[1:] // Move to the next byte
