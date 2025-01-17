@@ -1,4 +1,4 @@
-module asterix-parser
+module gosterix
 
 go 1.23.2
 
