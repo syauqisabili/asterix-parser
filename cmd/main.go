@@ -1,14 +1,14 @@
 package main
 
 import (
-	"asterix-parser/asterix"
-	"asterix-parser/asterix/cat240"
-	"asterix-parser/dto"
-	"asterix-parser/pkg"
 	"bytes"
 	"compress/zlib"
 	"encoding/hex"
 	"fmt"
+	"gosterix/asterix"
+	"gosterix/asterix/cat240"
+	"gosterix/dto"
+	"gosterix/pkg"
 	"io"
 	"math"
 )
