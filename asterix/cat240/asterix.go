@@ -1,8 +1,8 @@
 package cat240
 
 import (
-	"asterix-parser/asterix"
-	"asterix-parser/pkg"
+	"gosterix/asterix"
+	"gosterix/pkg"
 
 	"fmt"
 	"math"
@@ -125,7 +125,7 @@ func asterixUnpackProcess(cat240 *asterix.Cat240, raw []byte) {
 	fspec := raw[:len]
 	cat240.FieldSpecs = fspec
 
-	// fmt.Printf("FSPEC (%d): [%x]\n", len, fspec)
+	fmt.Printf("FSPEC (%d): [%x]\n", len, fspec)
 
 	pos := 0
 	for bit := Field1; bit < LenField; bit++ {
@@ -134,7 +134,7 @@ func asterixUnpackProcess(cat240 *asterix.Cat240, raw []byte) {
 		}
 
 		format := Cat240Profile[bit]
-		// fmt.Printf("Bit (%d)(%d): ", bit, format)
+		fmt.Printf("Bit (%d)(%d): ", bit, format)
 
 		var value []byte
 		if format == varLen || format == lowVarLen || format == mediumVarLen || format == highVarLen {
@@ -173,7 +173,7 @@ func asterixUnpackProcess(cat240 *asterix.Cat240, raw []byte) {
 			}
 		}
 
-		// fmt.Printf("[%x] \n", value)
+		fmt.Printf("[%x] \n", value)
 
 		// Put the value
 		asterixFieldPut(bit, value, cat240)
